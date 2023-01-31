@@ -1,0 +1,1466 @@
+---
+title: "RNA-seq analysis"
+output: html_document
+---
+
+
+## Introduction 
+
+Introduction to the theory and practice of RNA sequencing analysis
+Rationale for sequencing RNA
+Challenges specific to RNA-seq
+General goals and themes of RNA-seq analysis work flows
+Common technical questions related to RNA-seq analysis
+
+
+## Environment setup and tools installation
+
+```{bash echo=FALSE eval=FALSE}
+
+mkdir -p ~/workspace/rnaseq/
+export RNA_HOME=~/workspace/rnaseq
+export RNA_HOME=~/workspace/rnaseq
+export RNA_DATA_DIR=$RNA_HOME/data
+export RNA_DATA_TRIM_DIR=$RNA_DATA_DIR/trimmed
+export RNA_REFS_DIR=$RNA_HOME/refs
+export RNA_REF_INDEX=$RNA_REFS_DIR/GRCh38
+export RNA_REF_FASTA=$RNA_REF_INDEX.fa
+export RNA_REF_GTF=$RNA_REF_INDEX.gtf
+export RNA_ALIGN_DIR=$RNA_HOME/alignments/hisat2
+source ~/.bashrc
+
+
+cd $RNA_HOME
+mkdir student_tools
+cd student_tools
+
+cd $RNA_HOME/student_tools/
+wget https://github.com/samtools/samtools/releases/download/1.14/samtools-1.14.tar.bz2
+bunzip2 samtools-1.14.tar.bz2
+tar -xvf samtools-1.14.tar
+cd samtools-1.14
+make
+./samtools
+
+cd $RNA_HOME/student_tools/
+export SAMTOOLS_ROOT=$RNA_HOME/student_tools/samtools-1.14
+git clone https://github.com/genome/bam-readcount 
+cd bam-readcount
+mkdir build
+cd build
+cmake ..
+make
+./bin/bam-readcount
+
+cd $RNA_HOME/student_tools/
+curl -s https://cloud.biohpc.swmed.edu/index.php/s/oTtGWbWjaxsQ2Ho/download > hisat2-2.2.1-Linux_x86_64.zip
+unzip hisat2-2.2.1-Linux_x86_64.zip
+cd hisat2-2.2.1
+./hisat2 -h
+
+cd $RNA_HOME/student_tools/
+wget http://ccb.jhu.edu/software/stringtie/dl/stringtie-2.1.6.Linux_x86_64.tar.gz
+tar -xzvf stringtie-2.1.6.Linux_x86_64.tar.gz
+cd stringtie-2.1.6.Linux_x86_64
+make release
+./stringtie -h
+
+cd $RNA_HOME/student_tools/
+wget http://ccb.jhu.edu/software/stringtie/dl/gffcompare-0.12.1.Linux_x86_64.tar.gz
+tar -xzvf gffcompare-0.12.1.Linux_x86_64.tar.gz
+cd gffcompare-0.12.1.Linux_x86_64/
+./gffcompare
+
+cd $RNA_HOME/student_tools/
+git clone https://github.com/htseq/htseq.git
+cd htseq/
+git fetch --all --tags
+git checkout release_0.13.5
+python setup.py build
+python setup.py install
+chmod +x scripts/htseq-count
+./scripts/htseq-count -h
+
+cd $RNA_HOME/student_tools/
+wget http://genomedata.org/rnaseq-tutorial/tophat-2.1.1.Linux_x86_64.tar.gz
+tar -zxvf tophat-2.1.1.Linux_x86_64.tar.gz
+cd tophat-2.1.1.Linux_x86_64/
+./gtf_to_fasta
+
+cd $RNA_HOME/student_tools/
+wget https://github.com/pachterlab/kallisto/releases/download/v0.44.0/kallisto_linux-v0.44.0.tar.gz
+tar -zxvf kallisto_linux-v0.44.0.tar.gz
+cd kallisto_linux-v0.44.0/
+./kallisto
+
+cd $RNA_HOME/student_tools/
+wget http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.9.zip
+unzip fastqc_v0.11.9.zip
+cd FastQC/
+chmod 755 fastqc
+./fastqc --help
+
+pip3 install multiqc
+export PATH=/home/ubuntu/.local/bin:$PATH
+multiqc --help
+
+cd $RNA_HOME/student_tools/
+wget https://github.com/broadinstitute/picard/releases/download/2.26.4/picard.jar -O picard.jar
+java -jar $RNA_HOME/student_tools/picard.jar
+
+cd $RNA_HOME/student_tools/
+wget https://github.com/seqan/flexbar/releases/download/v3.5.0/flexbar-3.5.0-linux.tar.gz
+tar -xzvf flexbar-3.5.0-linux.tar.gz
+cd flexbar-3.5.0-linux/
+export LD_LIBRARY_PATH=$RNA_HOME/student_tools/flexbar-3.5.0-linux:$LD_LIBRARY_PATH
+./flexbar
+
+cd $RNA_HOME/student_tools/
+git clone https://github.com/griffithlab/regtools
+cd regtools/
+mkdir build
+cd build/
+cmake ..
+make
+./regtools
+
+pip3 install RSeQC
+read_GC.py
+
+cd $RNA_HOME/student_tools/
+mkdir bedops_linux_x86_64-v2.4.40
+cd bedops_linux_x86_64-v2.4.40
+wget -c https://github.com/bedops/bedops/releases/download/v2.4.40/bedops_linux_x86_64-v2.4.40.tar.bz2
+tar -jxvf bedops_linux_x86_64-v2.4.40.tar.bz2
+./bin/bedops
+./bin/gff2bed
+
+cd $RNA_HOME/student_tools/
+mkdir gtfToGenePred
+cd gtfToGenePred
+wget -c http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/gtfToGenePred
+chmod a+x gtfToGenePred
+./gtfToGenePred
+
+cd $RNA_HOME/student_tools/
+mkdir genePredToBed
+cd genePredToBed
+wget -c http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/genePredToBed
+chmod a+x genePredToBed
+./genePredToBed
+
+pip3 install git+https://github.com/betsig/how_are_we_stranded_here.git
+check_strandedness
+
+cd ~/bin
+wget `download_link`
+tar -xzvf cellranger-6.1.2.tar.gz
+
+sudo apt-get install tabix
+
+cd ~/bin
+git clone https://github.com/lh3/bwa.git
+cd bwa
+make
+
+cd ~/bin
+wget https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools-2.30.0.tar.gz
+tar -zxvf bedtools-2.30.0.tar.gz
+cd bedtools2
+make
+
+cd ~/bin
+wget https://github.com/samtools/bcftools/releases/download/1.14/bcftools-1.14.tar.bz2
+bunzip2 bcftools-1.14.tar.bz2
+tar -xvf bcftools-1.14.tar
+cd bcftools-1.14
+make
+./bcftools
+
+cd ~/bin
+wget https://github.com/samtools/htslib/releases/download/1.14/htslib-1.14.tar.bz2
+bunzip2 htslib-1.14.tar.bz2
+tar -xvf htslib-1.14.tar
+cd htslib-1.14
+make
+./htslib
+
+cd ~/bin
+git clone https://github.com/brentp/peddy
+cd peddy
+pip install -r requirements.txt
+pip install --editable .
+peddy
+
+cd ~/bin
+wget https://github.com/brentp/slivar/releases/download/v0.2.7/slivar
+chmod +x ./slivar
+
+cd ~/bin
+wget https://github.com/quinlan-lab/STRling/releases/download/v0.5.1/strling
+chmod +x ./strling
+
+git clone --recursive https://github.com/freebayes/freebayes.git
+cd freebayes
+meson build/ --buildtype debug
+cd build
+ninja
+ninja test
+./freebayes
+
+R
+install.packages(c("devtools","dplyr","gplots","ggplot2"),repos="http://cran.us.r-project.org")
+BioManager::install(c("genefilter","ballgown","edgeR","GenomicRanges","rhdf5","biomaRt"))
+devtools::install_github("pachterlab/sleuth")
+quit(save="no")
+
+
+
+```
+
+## Reference Genomes and annotation
+
+First we will create the necessary working directory.The complete data from which these files were obtained can be found at: ftp://ftp.ensembl.org/pub/release-86/fasta/homo_sapiens/dna/. You could use wget to download the Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz file, then unzip/untar.
+
+Note: you might consider getting reference genomes and associated annotations from UCSC. e.g., UCSC GRCh38 download.
+
+GTF annotation files for human can be found there
+
+http://ftp.ensembl.org/pub/release-105/gtf/homo_sapiens/
+https://www.gencodegenes.org/human/
+
+
+``` {bash echo=FALSE eval=FALSE}
+wget ftp://ftp.ensembl.org/pub/release-86/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz
+wget http://ftp.ensembl.org/pub/release-107/gtf/homo_sapiens/Homo_sapiens.GRCh38.107.chr.gtf.gz
+gunzip *.gz
+
+```
+
+How many genes are annotated?
+
+Gene annotations - Descriptions of gene/transcript models for a genome. A transcript model consists of the coordinates of the exons of a transcript on a reference genome. Additional information such as the strand the transcript is generated from, gene name, coding portion of the transcript, alternate transcript start sites, and other information may be provided.
+
+```{bash echo=FALSE}
+cat chr22_with_ERCC92.gtf | grep -w gene | wc -l
+
+```
+
+## The Purpose of Gene Annotations (.gtf file)
+
+When running the HISAT2/StringTie/Ballgown pipeline, known gene/transcript annotations are used for several purposes:
+
+    During the HISAT2 index creation step, annotations may be provided to create local indexes to represent transcripts as well as a global index for the entire reference genome. This allows for faster mapping and better mapping across exon boundaries and splice sites. If an alignment still can not be found it will attempt to determine if the read corresponds to a novel exon-exon junction. See the Indexing section and the HISAT2 publication for more details.
+
+    During the StringTie step, a .gtf file can be used to specify transcript models to guide the assembly process and limit expression estimates to predefined transcripts using the -G and -e options together. The -e option will give you one expression estimate for each of the transcripts in your .gtf file, giving you a ‘microarray like’ expression result.
+
+    During the StringTie step, if the -G option is specified without the -e option the .gtf file is used only to ‘guide’ the assembly of transcripts. Instead of assuming only the known transcript models are correct, the resulting expression estimates will correspond to both known and novel/predicted transcripts.
+
+    During the StringTie and gffcompare steps, a .gtf file is used to determine the transcripts that will be examined for differential expression using Ballgown. These may be known transcripts that you download from a public source, or a .gtf of transcripts predicted by StringTie from the read data in an earlier step.
+
+Sources for obtaining gene annotation files formatted for HISAT2/StringTie/Ballgown: Ensembl, UCSC, RefSeq, etc.
+
+## Important notes about .gtf
+
+On chromosome naming conventions: in order for your RNA-seq analysis to work, the chromosome names in your .gtf file must match those in your reference genome (i.e. your reference genome fasta file). If you get a StringTie result where all transcripts have an expression value of 0, you may have overlooked this. Unfortunately, Ensembl, NCBI, and UCSC can not agree on how to name the chromosomes in many species, so this problem may come up often. You can avoid this by getting a complete reference genome and gene annotation package from the same source (e.g., Ensembl) to maintain consistency.
+
+On reference genome builds: your annotations must correspond to the same reference genome build as your reference genome fasta file. e.g., both correspond to UCSC human build ‘hg38’, NCBI human build ‘GRCh38’, etc. Even if both your reference genome and annotations are from UCSC or Ensembl they could still correspond to different versions of that genome. This would cause problems in any RNA-seq pipeline.
+
+## Indexing
+
+```{bash echo=FALSE eval=FALSE}
+cd $RNA_REFS_DIR
+hisat2_extract_splice_sites.py $RNA_REF_GTF > $RNA_REFS_DIR/splicesites.tsv
+hisat2_extract_exons.py $RNA_REF_GTF > $RNA_REFS_DIR/exons.tsv
+hisat2-build -p 8 --ss $RNA_REFS_DIR/splicesites.tsv --exon $RNA_REFS_DIR/exons.tsv $RNA_REF_FASTA $RNA_REF_INDEX
+ls
+
+```
+
+
+## RNAseq data
+```{bash echo=FALSE eval=FALSE}
+
+echo $RNA_DATA_DIR
+mkdir -p $RNA_DATA_DIR
+cd $RNA_DATA_DIR
+
+#this command will move all files from subfolders to a parental folder 
+find . -mindepth 2 -type f -print -exec mv {} . \;
+
+# How many reads are there in the first library? Decompress file on the fly with ‘zcat’, pipe into ‘grep’, search for the read name prefix and # # pipe into ‘wc’ to do a word count (‘-l’ gives lines)
+
+gunzip *.gz
+
+zcat your_file1.fa.gz | grep -P "^\@HWI" | wc -l
+
+# in order to check strandedness (optional)
+cd $RNA_HOME/refs/
+
+# Convert Gtf to genePred
+gtfToGenePred GRCh38.gtf GRCh38.genePred
+
+# Convert genPred to bed12
+genePredToBed GRCh38.genePred GRCh38.bed12
+
+# Use bedtools to create fasta from GTF
+bedtools getfasta -fi GRCh38.fa -bed GRCh38.bed12 -s -split -name -fo GRCh38_transcripts.fa
+cat GRCh38_transcripts.fa | perl -ne 'if($_ =~/^\>\S+\:\:(ERCC\-\d+)\:.*/){print ">$1\n"}elsif ($_ =~/^\>(\S+)\:\:.*/){print ">$1\n"}else{print $_}' > GRCh38_transcripts.clean.fa
+
+# here we want our .gtf indexing file to have start sign for each transcript
+awk '{ if ($0 ~ "transcript_id") print $0; else print $0" transcript_id \"\";"; }' GRCh38.gtf > GRCh38_tidy.gtf
+
+# now we will run check_strandedness from docker
+docker run -v /home/evgenia/workspace/rnaseq:/docker_workspace mgibio/checkstrandedness:latest check_strandedness --gtf /docker_workspace/refs/GRCh38_tidy.gtf --transcripts /docker_workspace/refs/GRCh38_transcripts.clean.fa --reads_1 /docker_workspace/data/controls/BP_HL_K800287_1.fq.gz --reads_2 /docker_workspace/data/controls/BP_HL_K800287_2.fq.gz
+
+# general usage 
+# check_strandedness --gtf Yeast.gtf --transcripts Yeast_cdna.fasta --reads_1 Sample_A_1.fq.gz --reads_2 Sample_A_2.fq.gz
+
+#if this does not work you can try Salmon 
+cd ~/workspace/rnaseq/refs/
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh38.primary_assembly.genome.fa.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/gencode.v41.transcripts.fa.gz
+grep "^>" <(gunzip -c GRCh38.primary_assembly.genome.fa.gz) | cut -d " " -f 1 > decoys.txt #preparing metadata for salmon
+sed -i.bak -e 's/>//g' decoys.txt
+cat gencode.v41.transcripts.fa.gz GRCh38.primary_assembly.genome.fa.gz > gentrome.fa.gz
+salmon index -t gentrome.fa.gz -d decoys.txt -p 12 -i salmon_index --gencode
+
+
+```
+
+### Pre-alignment QC
+
+FastQC
+
+You can use FastQC to get a sense of your data quality before alignment:
+
+    http://www.bioinformatics.babraham.ac.uk/projects/fastqc/
+
+Video Tutorial here:
+
+    http://www.youtube.com/watch?v=bz93ReOv87Y
+
+Try to run FastQC on your fastq files:
+
+```{bash echo=FALSE eval=FALSE}
+#for each folder we need to repeat separately 
+cd $RNA_HOME/data/controls
+fastqc *.fq.gz
+python3 -m multiqc .
+cd $RNA_HOME/data/healthy
+fastqc *.fq.gz
+python3 -m multiqc .
+cd $RNA_HOME/data/preliesonal
+fastqc *.fq.gz
+python3 -m multiqc .
+```
+
+Click on any of the *_fastqc.html files to view the FastQC report
+Exercise: Investigate the source/explanation for over-represented sequences:
+try to BLAST them
+
+# MultiQC
+
+We run MultiQC on your fastqc reports to generate a single summary report across all samples/replicates.
+
+
+```{bash echo=FALSE eval=FALSE}
+cd $RNA_HOME/data/
+python3 -m multiqc .
+
+```
+
+### Alignment: adapter trimming
+
+Use Flexbar to trim sequence adapter from the read FASTQ files. The output of this step will be trimmed FASTQ files for each data set.
+
+Refer to the Flexbar project and manual for a more detailed explanation:
+
+    https://github.com/seqan/flexbar
+    https://github.com/seqan/flexbar/wiki
+
+Flexbar basic usage:
+
+    flexbar -r reads [-t target] [-b barcodes] [-a adapters] [options]
+
+
+```{bash echo=FALSE eval=FALSE}
+echo $RNA_DATA_TRIM_DIR
+mkdir -p $RNA_DATA_TRIM_DIR
+
+echo $RNA_REFS_DIR
+mkdir -p $RNA_REFS_DIR
+cd $RNA_REFS_DIR
+# add here a file with adapter sequences (you can find those in seq_reports from the company)
+
+#trimming controls
+
+cd $RNA_HOME
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800287_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800287_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_K800287
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800290_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800290_2.fq.gz --target /home/evgenia/workspace/rnaseq/data/trimmed/BP_HL_K800290
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800294_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800294_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_K800294
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800301_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800301_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_K800301
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800303_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800303_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_K800303
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800304_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800304_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_K800304
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800305_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800305_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_K800305
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800307_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800307_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_K800307
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800308_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800308_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_K800308
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800321_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/controls/BP_HL_K800321_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_K800321
+
+
+# trimming preliesonal stage
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800287_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800287_1_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800287_1
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800290_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800290_1_2.fq.gz --target /home/evgenia/workspace/rnaseq/data/trimmed/BP_HL_P800290_1
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800294_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800294_1_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800294_1
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800301_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800301_1_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800301_1
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800303_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800303_1_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800303_1
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800304_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800304_1_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800304_1
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800305_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800305_1_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800305_1
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800307_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800307_1_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800307_1
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800308_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800308_1_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800308_1
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800321_1_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/preliesonal/BP_HL_P800321_1_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800321_1
+
+# trimming healthy stage
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800287_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800287_2_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800287_2
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800290_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800290_2_2.fq.gz --target /home/evgenia/workspace/rnaseq/data/trimmed/BP_HL_P800290_2
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800294_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800294_2_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800294_2
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800301_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800301_2_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800301_2
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800303_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800303_2_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800303_2
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800304_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800304_2_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800304_2
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800305_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800305_2_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800305_2
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800307_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800307_2_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800307_2
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800308_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800308_2_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800308_2
+
+flexbar --adapter-min-overlap 7 --adapter-trim-end RIGHT --adapters $RNA_REFS_DIR/illumina_multiplex.fa --pre-trim-left 17 --max-uncalled 300 --min-read-length 25 --threads 8 --zip-output GZ --reads /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800321_2_1.fq.gz --reads2 /home/evgenia/workspace/rnaseq/data/healthy/BP_HL_P800321_2_2.fq.gz --target $RNA_DATA_TRIM_DIR/BP_HL_P800321_2
+
+```
+
+Use FastQC and multiqc to compare the impact of trimming
+
+```{bash echo=FALSE eval=FALSE}
+cd $RNA_DATA_TRIM_DIR
+fastqc *.fastq.gz
+python3 -m multiqc .
+
+mkdir fastqc
+mv *fastqc* fastqc
+
+```
+
+### HISAT2 alignment
+
+Perform alignments with HISAT2 to the genome and transcriptome.
+
+HISAT2 uses a graph-based alignment and the output of this step will be a SAM/BAM file for each data set.
+
+Refer to HISAT2 manual for a more detailed explanation:  http://daehwankimlab.github.io/hisat2/manual/
+
+
+
+
+
+
+```{bash echo=FALSE eval=FALSE}
+echo $RNA_ALIGN_DIR
+mkdir -p $RNA_ALIGN_DIR
+cd $RNA_ALIGN_DIR
+
+# alignment of controls
+
+hisat2 -p 4 --rg-id=BP_HL_K800287 --rg SM:BP_HL_K --rg LB:BP_HL_K800287 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x /home/evgenia/workspace/rnaseq/refs/GRCh38/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800287_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800287_2.fq.gz -S ./BP_HL_K800287.sam
+
+hisat2 -p 4 --rg-id=BP_HL_K800290 --rg SM:BP_HL_K --rg LB:BP_HL_K800290 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800290_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800290_2.fq.gz -S ./BP_HL_K800290.sam
+
+hisat2 -p 4 --rg-id=BP_HL_K800294 --rg SM:BP_HL_K --rg LB:BP_HL_K800294 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800294_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800294_2.fq.gz -S ./BP_HL_K800294.sam
+
+hisat2 -p 4 --rg-id=BP_HL_K800301 --rg SM:BP_HL_K --rg LB:BP_HL_K800301 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800301_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800301_2.fq.gz -S ./BP_HL_K800301.sam
+
+hisat2 -p 4 --rg-id=BP_HL_K800303 --rg SM:BP_HL_K --rg LB:BP_HL_K800303 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800303_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800303_2.fq.gz -S ./BP_HL_K800303.sam
+
+hisat2 -p 4 --rg-id=BP_HL_K800304 --rg SM:BP_HL_K --rg LB:BP_HL_K800304 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800304_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800304_2.fq.gz -S ./BP_HL_K800304.sam
+
+hisat2 -p 4 --rg-id=BP_HL_K800305 --rg SM:BP_HL_K --rg LB:BP_HL_K800305 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800305_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800305_2.fq.gz -S ./BP_HL_K800305.sam
+
+hisat2 -p 4 --rg-id=BP_HL_K800307 --rg SM:BP_HL_K --rg LB:BP_HL_K800307 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800307_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800307_2.fq.gz -S ./BP_HL_K800307.sam
+
+hisat2 -p 4 --rg-id=BP_HL_K800308 --rg SM:BP_HL_K --rg LB:BP_HL_K800308 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800308_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800308_2.fq.gz -S ./BP_HL_K800308.sam
+
+hisat2 -p 4 --rg-id=BP_HL_K800321 --rg SM:BP_HL_K --rg LB:BP_HL_K800321 --rg PL:ILLUMINA --rg PU:C1162ACXX-CGATGT.1 -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/controls/BP_HL_K800321_1.fq.gz -2 $RNA_DATA_DIR/controls/BP_HL_K800321_2.fq.gz -S ./BP_HL_K800321.sam
+
+
+# alignment of healthy stage
+
+hisat2 -p 4 --rg-id=BP_HL_P800287_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800287_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800287_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800287_2_2.fq.gz -S ./BP_HL_P800287_2.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800290_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800290_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800290_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800290_2_2.fq.gz -S ./BP_HL_P800290_2.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800294_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800294_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800294_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800294_2_2.fq.gz -S ./BP_HL_P800294_2.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800301_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800301_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800301_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800301_2_2.fq.gz -S ./BP_HL_P800301_2.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800303_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800303_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800303_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800303_2_2.fq.gz -S ./BP_HL_P800303_2.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800304_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800304_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800304_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800304_2_2.fq.gz -S ./BP_HL_P800304_2.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800305_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800305_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800305_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800305_2_2.fq.gz -S ./BP_HL_P800305_2.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800307_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800307_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800307_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800307_2_2.fq.gz -S ./BP_HL_P800307_2.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800308_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800308_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800308_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800308_2_2.fq.gz -S ./BP_HL_P800308_2.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800321_2 --rg SM:BP_HL_P_2 --rg LB:BP_HL_P800321_2 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/healthy/BP_HL_P800321_2_1.fq.gz -2 $RNA_DATA_DIR/healthy/BP_HL_P800321_2_2.fq.gz -S ./BP_HL_P800321_2.sam
+
+
+# alignment of preliesonal stage
+
+hisat2 -p 4 --rg-id=BP_HL_P800287_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800287_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800287_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800287_1_2.fq.gz -S ./BP_HL_P800287_1.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800290_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800290_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800290_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800290_1_2.fq.gz -S ./BP_HL_P800290_1.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800294_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800294_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800294_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800294_1_2.fq.gz -S ./BP_HL_P800294_1.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800301_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800301_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800301_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800301_1_2.fq.gz -S ./BP_HL_P800301_1.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800303_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800303_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800303_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800303_1_2.fq.gz -S ./BP_HL_P800303_1.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800304_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800304_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800304_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800304_1_2.fq.gz -S ./BP_HL_P800304_1.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800305_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800305_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800305_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800305_1_2.fq.gz -S ./BP_HL_P800305_1.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800307_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800307_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800307_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800307_1_2.fq.gz -S ./BP_HL_P800307_1.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800308_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800308_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800308_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800308_1_2.fq.gz -S ./BP_HL_P800308_1.sam
+
+hisat2 -p 4 --rg-id=BP_HL_P800321_1 --rg SM:BP_HL_P_1 --rg LB:BP_HL_P800321_1 --rg PL:ILLUMINA -x $RNA_REF_INDEX/genome --dta -1 $RNA_DATA_DIR/preliesonal/BP_HL_P800321_1_1.fq.gz -2 $RNA_DATA_DIR/preliesonal/BP_HL_P800321_1_2.fq.gz -S ./BP_HL_P800321_1.sam
+
+```
+
+Extra options specified below:
+
+    ‘-p 8’ tells HISAT2 to use eight CPUs for bowtie alignments.
+    ’–rna-strandness RF’ specifies strandness of RNAseq library. We will specify RF since the TruSeq strand-specific library was used to make these libraries. See here for options.
+    ’–rg-id $ID’ specifies a read group ID that is a unique identifier.
+    ’–rg SM:$SAMPLE_NAME’ specifies a read group sample name. This together with rg-id will allow you to determine which reads came from which sample in the merged bam later on.
+    ’–rg LB:$LIBRARY_NAME’ specifies a read group library name. This together with rg-id will allow you to determine which reads came from which library in the merged bam later on.
+    ’–rg PL:ILLUMINA’ specifies a read group sequencing platform.
+    ’–rg PU:$PLATFORM_UNIT’ specifies a read group sequencing platform unit. Typically this consists of FLOWCELL-BARCODE.LANE
+    ’–dta’ Reports alignments tailored for transcript assemblers.
+    ‘-x /path/to/hisat2/index’ The HISAT2 index filename prefix (minus the trailing .X.ht2) built earlier including splice sites and exons.
+    ‘-1 /path/to/read1.fastq.gz’ The read 1 FASTQ file, optionally gzip(.gz) or bzip2(.bz2) compressed.
+    ‘-2 /path/to/read2.fastq.gz’ The read 2 FASTQ file, optionally gzip(.gz) or bzip2(.bz2) compressed.
+    ‘-S /path/to/output.sam’ The output SAM format text file of alignments.
+
+HISAT2 Alignment Summary HISAT2 generates a summary of the alignments printed to the terminal. Notice the number of total reads, reads aligned and various metrics regarding how the reads aligned to the reference.
+
+Then we need to sort and convert SAM to BAM
+
+Please, repeat line below for each file. 
+
+
+```{bash echo=FALSE eval=FALSE}
+for file in *.sam
+do
+arrSam=(${arrSam[@]} "$file") 
+done
+
+
+for file in ${arrSam[*]}
+do
+samtools sort -@ 8 -o $file.bam $file
+done
+
+```
+
+
+Merge HISAT2 BAM files
+
+Make a single BAM file combining all controls data and another for all patience data. Note: This could be done in several ways such as ‘samtools merge’, ‘bamtools merge’, or using picard-tools (see below). We chose the third method because it did the best job at merging the bam header information. NOTE: sambamba also retains header info.
+
+
+
+```{bash echo=FALSE eval=FALSE}
+cd $RNA_HOME/alignments/hisat2
+
+java -Xmx2g -jar /home/evgenia/workspace/rnaseq/student_tools/picard.jar MergeSamFiles OUTPUT=BP_HL_P_2.bam INPUT=BP_HL_P800321_1.sam.bam INPUT=BP_HL_P800287_1.sam.bam INPUT=BP_HL_P800290_1.sam.bam INPUT=BP_HL_P800294_1.sam.bam INPUT=BP_HL_P800301_1.sam.bam INPUT=BP_HL_P800303_1.sam.bam INPUT=BP_HL_P800304_1.sam.bam INPUT=BP_HL_P800305_1.sam.bam INPUT=BP_HL_P800307_1.sam.bam INPUT=BP_HL_P800308_1.sam.bam
+java -Xmx2g -jar /home/evgenia/workspace/rnaseq/student_tools/picard.jar MergeSamFiles OUTPUT=BP_HL_P_1.bam INPUT=BP_HL_P800321_2.sam.bam INPUT=BP_HL_P800287_2.sam.bam INPUT=BP_HL_P800290_2.sam.bam INPUT=BP_HL_P800294_2.sam.bam INPUT=BP_HL_P800301_2.sam.bam INPUT=BP_HL_P800303_2.sam.bam INPUT=BP_HL_P800304_2.sam.bam INPUT=BP_HL_P800305_2.sam.bam INPUT=BP_HL_P800307_2.sam.bam INPUT=BP_HL_P800308_2.sam.bam
+java -Xmx2g -jar /home/evgenia/workspace/rnaseq/student_tools/picard.jar MergeSamFiles OUTPUT=BP_HL_K.bam INPUT=BP_HL_K800321.sam.bam INPUT=BP_HL_K800287.sam.bam INPUT=BP_HL_K800290.sam.bam INPUT=BP_HL_K800294.sam.bam INPUT=BP_HL_K800301.sam.bam INPUT=BP_HL_K800303.sam.bam INPUT=BP_HL_K800304.sam.bam INPUT=BP_HL_K800305.sam.bam INPUT=BP_HL_K800307.sam.bam INPUT=BP_HL_K800308.sam.bam
+
+```
+
+### IGV integrative genome viewer
+
+Investigate your .bam files with igv. Check the alignments.
+
+Before you can view your alignments in the IGV browser you need to index your BAM files. Use samtools index for this purpose. For convenience later, index all bam files.
+
+```{bash echo=FALSE eval=FALSE}
+
+find *.bam -exec echo samtools index {} \; | sh
+
+
+```
+
+Visualize alignments
+
+Start IGV on your computer. Load the .bam files in IGV. 
+Make sure you select the appropriate reference genome build in IGV (top left corner of IGV).
+
+Try to find a variant position in the RNAseq data:
+* Any highly expressed genes you might explore?
+* Are these variants previously known (e.g., present in dbSNP)?
+* How should you interpret the allele frequency of each variant?
+* Take note of the genomic position of your variant. We will need this later.
+
+
+### Alignment QC
+
+Use samtools and FastQC to evaluate the alignments.
+
+Try requiring that alignments are ‘paired’ and ‘mapped in a proper pair’ (=3). Also filter out alignments that are ‘unmapped’, the ‘mate is unmapped’, and ‘not primary alignment’ (=268).
+
+```{bash echo=FALSE eval=FALSE}
+
+samtools view -f 3 -F 268 BP_HL_K.bam | head | column -t | less -S
+
+```
+
+Now require that the alignments be only for ‘PCR or optical duplicate’. How many reads meet this criteria? Why?
+
+```{bash echo=FALSE eval=FALSE}
+
+samtools view -f 1024 BP_HL_K.bam | head
+
+```
+
+Use samtools flagstat to get a basic summary of an alignment. What percent of reads are mapped? Is this realistic? Why?
+
+You can use FastQC to perform basic QC of your BAM file.
+
+```{bash echo=FALSE eval=FALSE}
+
+cd $RNA_ALIGN_DIR
+mkdir flagstat
+
+find BP_HL*.bam -exec echo samtools flagstat {} \> flagstat/{}.flagstat \; | sh
+cat flagstat/BP_HL_K.bam.flagstat
+
+arrBam=[]
+for file in *.bam
+do
+arrBam=(${arrBam[@]} "$file") 
+done
+
+
+cd $RNA_ALIGN_DIR
+
+for file in ${arrBam[*]} 
+do
+fastqc $file
+done
+
+mkdir fastqc
+mv *fastqc.html fastqc/
+mv *fastqc.zip fastqc/
+
+
+```
+
+### Using Picard
+
+You can use Picard to generate RNA-seq specific quality metrics and figures. 
+
+```{bash echo=FALSE eval=FALSE}
+
+# Generating the necessary input files for picard CollectRnaSeqMetrics
+cd $RNA_HOME/refs
+
+# Create a .dict file for our reference
+java -jar $PICARD CreateSequenceDictionary R=GRCh38.fa O=GRCh38.dict
+
+# Create a bed file of the location of ribosomal sequences in our reference (first extract from the gtf then convert to bed)
+grep --color=none -i rrna GRCh38.gtf > ref_ribosome.gtf
+gff2bed < ref_ribosome.gtf > ref_ribosome.bed
+
+# Create interval list file for the location of ribosomal sequences in our reference
+java -jar $PICARD BedToIntervalList I=ref_ribosome.bed O=ref_ribosome.interval_list SD=GRCh38.dict
+
+# Create a genePred file for our reference transcriptome
+gtfToGenePred -genePredExt GRCh38.gtf GRCh38.ref_flat.txt
+
+# reformat this genePred file
+cat GRCh38.ref_flat.txt | awk '{print $12"\t"$0}' | cut -d$'\t' -f1-11 > tmp.txt
+mv tmp.txt GRCh38.ref_flat.txt
+
+cd $RNA_HOME/alignments/hisat2/
+mkdir picard
+find BP_HL*.bam -exec echo java -jar $PICARD CollectRnaSeqMetrics I={} O=picard/{}.RNA_Metrics REF_FLAT=$RNA_HOME/refs/GRCh38.ref_flat.txt STRAND=SECOND_READ_TRANSCRIPTION_STRAND RIBOSOMAL_INTERVALS=$RNA_HOME/refs/ref_ribosome.interval_list \; | sh
+
+
+```
+
+### RSeQC
+
+RSeQC is a tool that can be used to generate QC reports for RNA-seq.
+
+Files needed:
+
+    Aligned bam files
+    Index file for each bam file.
+    A transcript bed file (in bed12 format).
+
+Gene Body Coverage calculates read coverage over gene bodies. This is used to check if reads coverage is uniform and if there is any 5' or 3' bias. This script from RSeqQC scales all transcripts to 100 nt and calculates the number of reads covering each nucleotide position. Finally, it generates a plot illustrating the coverage profile along the gene body. 
+The tool junction_annotation.py divides splice junctions to
+novel, partially novel (one splice site is novel), and annotated (both splice
+sites are contained in the reference gene models), and reports the results
+as a pie chart.
+The tool read_distribution.py calculates the distribution of
+reads to different genomic feature types.
+Basic alignment statistics can be obtained with the bam_stat.py tool.
+
+
+```{bash echo=FALSE eval=FALSE}
+
+cd $RNA_HOME/refs/
+
+# Convert Gtf to genePred
+gtfToGenePred GRCh38.gtf GRCh38.genePred
+
+# Convert genPred to bed12
+genePredToBed GRCh38.genePred GRCh38.bed12
+
+cd $RNA_ALIGN_DIR
+mkdir rseqc
+for file in *.sam.bam; do mv "$file" "${file/.sam.bam/.bam}"; done
+for file in *.sam.bam.bai; do mv "$file" "${file/.sam.bam.bai/.bam.bai}"; done
+
+geneBody_coverage.py -i BP_HL_K800321.bam,BP_HL_K800287.bam,BP_HL_K800290.bam,BP_HL_K800294.bam,BP_HL_K800301.bam,BP_HL_K800303.bam,BP_HL_K800304.bam,BP_HL_K800305.bam,BP_HL_K800307.bam,BP_HL_K800308.bam -r $RNA_HOME/refs/GRCh38.bed12 -o rseqc/BP_HL_K
+geneBody_coverage.py -i BP_HL_P800321_1.bam,BP_HL_P800287_1.bam,BP_HL_P800290_1.bam,BP_HL_P800294_1.bam,BP_HL_P800301_1.bam,BP_HL_P800303_1.bam,BP_HL_P800304_1.bam,BP_HL_P800305_1.bam,BP_HL_P800307_1.bam,BP_HL_P800308_1.bam -r $RNA_HOME/refs/GRCh38.bed12 -o rseqc/BP_HL_P_1 
+geneBody_coverage.py -i BP_HL_P800321_2.bam,BP_HL_P800287_2.bam,BP_HL_P800290_2.bam,BP_HL_P800294_2.bam,BP_HL_P800301_2.bam,BP_HL_P800303_2.bam,BP_HL_P800304_2.bam,BP_HL_P800305_2.bam,BP_HL_P800307_2.bam,BP_HL_P800308_2.bam -r $RNA_HOME/refs/GRCh38.bed12 -o rseqc/BP_HL_P_2
+
+find BP_HL*.bam -exec echo inner_distance.py -i {} -r $RNA_HOME/refs/GRCh38.bed12 -o rseqc/{} \; | sh
+
+find BP_HL*.bam -exec echo junction_annotation.py -i {} -r $RNA_HOME/refs/GRCh38.bed12 -o rseqc/{} \; | sh
+
+find BP_HL*.bam -exec echo junction_saturation.py -i {} -r $RNA_HOME/refs/GRCh38.bed12 -o rseqc/{} \; | sh
+
+find BP_HL*.bam -exec echo read_distribution.py  -i {} -r $RNA_HOME/refs/GRCh38.bed12 \> rseqc/{}.read_dist.txt \; | sh
+
+find BP_HL*.bam -exec echo RNA_fragment_size.py -i {} -r $RNA_HOME/refs/GRCh38.bed12 \> rseqc/{}.frag_size.txt \; | sh
+
+find BP_HL*.bam -exec echo bam_stat.py -i {} \> {}.bam_stat.txt \; | sh
+
+rm -f log.txt
+
+
+
+```
+
+### MultiQC
+
+We will now use multiQC to compile a QC report from all the QC tools above.
+
+
+```{bash echo=FALSE eval=FALSE}
+
+cd $RNA_ALIGN_DIR
+python3 -m multiqc ./
+
+```
+
+### Expression Analysis
+
+Key concepts:
+
+  - Expression estimation for known genes and transcripts
+  - FPKM/TPM expression estimates vs. raw counts
+  - Differential expression methods
+  - Downstream interpretation of expression and differential estimates
+
+
+The number of reads generated per transcript depends on several factors. Some of these are obvious, such as sequencing depth and transcript length (when fragmented during library preparation, longer transcripts produce more fragments and hence more reads). However, some factors affecting the number of reads can be harder to pinpoint, such as transcriptome composition, GC bias, and sequence-specific bias caused by random hexamers. If you want to compare read counts between different genes or different samples, you need to take these factors into account. Many normalization methods are available, and the choice depends on what kind of expression comparisons you want to make. Quantitation software typically outputs abundances in either raw counts or in FPKM (Fragments Per Kilobase per Million mapped reads). Raw counts are needed for differential expression analysis, while FPKMs can be used for abundance reporting purposes. FPKM’s predecessor RPKM (Reads Per Kilobase per Million mapped reads) was introduced by Mortazavi et al. in order to correct counts for library size and transcript length. It divides counts by transcript length (in kilobases) and by the total number of reads. For example, if a 2 kb transcript has 1000 reads and the total number of reads is 25 million, then RPKM = (1000/2)/25 = 20. FPKM is the equivalent for paired-end experiments where fragments are sequenced from both ends, providing two reads for each fragment. An alternative approach called TPM (Transcripts Per Million) takes into account the distribution of transcript lengths in the sample and should therefore produce abundances which are more consistent between samples. Instead of dividing by the total number of reads, it divides by the sum of “transcript length normalized” reads.
+
+
+You are going to use Stringtie to generate expression estimates from the SAM/BAM files generated by HISAT2 in the previous steps.
+
+
+
+
+```{bash echo=FALSE eval=FALSE}
+
+cd $RNA_HOME/
+mkdir -p expression/stringtie/ref_only/
+cd expression/stringtie/ref_only/
+
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800287/transcripts.gtf -A BP_HL_K800287/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800287.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800290/transcripts.gtf -A BP_HL_K800290/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800290.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800294/transcripts.gtf -A BP_HL_K800294/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800294.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800301/transcripts.gtf -A BP_HL_K800301/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800301.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800303/transcripts.gtf -A BP_HL_K800303/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800303.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800304/transcripts.gtf -A BP_HL_K800304/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800304.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800305/transcripts.gtf -A BP_HL_K800305/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800305.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800307/transcripts.gtf -A BP_HL_K800307/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800307.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800308/transcripts.gtf -A BP_HL_K800308/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800308.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_K800321/transcripts.gtf -A BP_HL_K800321/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_K800321.bam
+
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P_1/transcripts.gtf -A BP_HL_P_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800287_1/transcripts.gtf -A BP_HL_P800287_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800287_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800290_1/transcripts.gtf -A BP_HL_P800290_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800290_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800294_1/transcripts.gtf -A BP_HL_P800294_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800294_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800301_1/transcripts.gtf -A BP_HL_P800301_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800301_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800303_1/transcripts.gtf -A BP_HL_P800303_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800303_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800304_1/transcripts.gtf -A BP_HL_P800304_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800304_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800305_1/transcripts.gtf -A BP_HL_P800305_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800305_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800307_1/transcripts.gtf -A BP_HL_P800307_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800307_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800308_1/transcripts.gtf -A BP_HL_P800308_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800308_1.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800321_1/transcripts.gtf -A BP_HL_P800321_1/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800321_1.bam
+
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P_2/transcripts.gtf -A BP_HL_P_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800287_2/transcripts.gtf -A BP_HL_P800287_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800287_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800290_2/transcripts.gtf -A BP_HL_P800290_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800290_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800294_2/transcripts.gtf -A BP_HL_P800294_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800294_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800301_2/transcripts.gtf -A BP_HL_P800301_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800301_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800303_2/transcripts.gtf -A BP_HL_P800303_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800303_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800304_2/transcripts.gtf -A BP_HL_P800304_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800304_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800305_2/transcripts.gtf -A BP_HL_P800305_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800305_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800307_2/transcripts.gtf -A BP_HL_P800307_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800307_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800308_2/transcripts.gtf -A BP_HL_P800308_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800308_2.bam
+stringtie --rf -p 8 -G $RNA_REF_GTF -e -B -o BP_HL_P800321_2/transcripts.gtf -A BP_HL_P800321_2/gene_abundances.tsv $RNA_ALIGN_DIR/BP_HL_P800321_2.bam
+
+less -S BP_HL_K/transcripts.gtf
+grep -v "^#" BP_HL_K/transcripts.gtf | grep -w "transcript" | column -t | less -S
+awk '{if ($3=="transcript") print}' BP_HL_K/transcripts.gtf | cut -f 1,4,9 | less -S
+column -t BP_HL_K/t_data.ctab | less -S
+
+less -S -x20 BP_HL_K/gene_abundances.tsv
+
+
+
+
+```
+
+
+Create a tidy expression matrix files for the StringTie results. This will be done at both the gene and transcript level and also will take into account the various expression measures produced: coverage, FPKM, and TPM.
+
+
+
+```{bash echo=FALSE eval=FALSE}
+
+cd $RNA_HOME/expression/stringtie/ref_only/
+wget https://raw.githubusercontent.com/griffithlab/rnabio.org/master/assets/scripts/stringtie_expression_matrix.pl
+chmod +x stringtie_expression_matrix.pl
+
+./stringtie_expression_matrix.pl --expression_metric=TPM --result_dirs='BP_HL_K,BP_HL_K800287,BP_HL_K800290,BP_HL_K800294,BP_HL_K800301,BP_HL_K800303,BP_HL_K800304,BP_HL_K800305,BP_HL_K800307,BP_HL_K800308,BP_HL_K800321,BP_HL_P_1,BP_HL_P800321_1,BP_HL_P800287_1,BP_HL_P800290_1,BP_HL_P800294_1,BP_HL_P800301_1,BP_HL_P800303_1,BP_HL_P800304_1,BP_HL_P800305_1,BP_HL_P800307_1,BP_HL_P800308_1,BP_HL_P_2,BP_HL_P800321_2,BP_HL_P800287_2,BP_HL_P800290_2,BP_HL_P800294_2,BP_HL_P800301_2,BP_HL_P800303_2,BP_HL_P800304_2,BP_HL_P800305_2,BP_HL_P800307_2,BP_HL_P800308_2' --transcript_matrix_file=transcript_tpm_all_samples.tsv --gene_matrix_file=gene_tpm_all_samples.tsv
+
+./stringtie_expression_matrix.pl --expression_metric=FPKM --result_dirs='BP_HL_K,BP_HL_K800287,BP_HL_K800290,BP_HL_K800294,BP_HL_K800301,BP_HL_K800303,BP_HL_K800304,BP_HL_K800305,BP_HL_K800307,BP_HL_K800308,BP_HL_K800321,BP_HL_P_1,BP_HL_P800321_1,BP_HL_P800287_1,BP_HL_P800290_1,BP_HL_P800294_1,BP_HL_P800301_1,BP_HL_P800303_1,BP_HL_P800304_1,BP_HL_P800305_1,BP_HL_P800307_1,BP_HL_P800308_1,BP_HL_P_2,BP_HL_P800321_2,BP_HL_P800287_2,BP_HL_P800290_2,BP_HL_P800294_2,BP_HL_P800301_2,BP_HL_P800303_2,BP_HL_P800304_2,BP_HL_P800305_2,BP_HL_P800307_2,BP_HL_P800308_2' --transcript_matrix_file=transcript_fpkm_all_samples.tsv --gene_matrix_file=gene_fpkm_all_samples.tsv
+
+./stringtie_expression_matrix.pl --expression_metric=Coverage --result_dirs='BP_HL_K,BP_HL_K800287,BP_HL_K800290,BP_HL_K800294,BP_HL_K800301,BP_HL_K800303,BP_HL_K800304,BP_HL_K800305,BP_HL_K800307,BP_HL_K800308,BP_HL_K800321,BP_HL_P_1,BP_HL_P800321_1,BP_HL_P800287_1,BP_HL_P800290_1,BP_HL_P800294_1,BP_HL_P800301_1,BP_HL_P800303_1,BP_HL_P800304_1,BP_HL_P800305_1,BP_HL_P800307_1,BP_HL_P800308_1,BP_HL_P_2,BP_HL_P800321_2,BP_HL_P800287_2,BP_HL_P800290_2,BP_HL_P800294_2,BP_HL_P800301_2,BP_HL_P800303_2,BP_HL_P800304_2,BP_HL_P800305_2,BP_HL_P800307_2,BP_HL_P800308_2' --transcript_matrix_file=transcript_coverage_all_samples.tsv --gene_matrix_file=gene_coverage_all_samples.tsv
+
+column -t transcript_tpm_all_samples.tsv | less -S
+column -t gene_tpm_all_samples.tsv | less -S
+
+
+```
+
+
+Later we will use these files to perform various comparisons of expression estimation tools (e.g. stringtie, kallisto, raw counts) and metrics (e.g. FPKM vs TPM).
+
+
+
+# HISAT2 counts
+
+Run htseq-count on alignments instead to produce raw counts instead of FPKM/TPM values for differential expression analysis
+
+Run htseq-count and calculate gene-level counts:
+
+Extra options specified below:
+
+    ’–format’ specify the input file format one of BAM or SAM. Since we have BAM format files, select ‘bam’ for this option.
+    ’–order’ provide the expected sort order of the input file. Previously we generated position sorted BAM files so use ‘pos’.
+    ’–mode’ determines how to deal with reads that overlap more than one feature. We believe the ‘intersection-strict’ mode is best.
+    ’–stranded’ specifies whether data is stranded or not. The TruSeq strand-specific RNA libraries suggest the ‘reverse’ option for this parameter.
+    ’–minaqual’ will skip all reads with alignment quality lower than the given minimum value
+    ’–type’ specifies the feature type (3rd column in GFF file) to be used. (default, suitable for RNA-Seq and Ensembl GTF files: exon)
+    ’–idattr’ The feature ID used to identify the counts in the output table. The default, suitable for RNA-SEq and Ensembl GTF files, is gene_id.
+
+
+
+```{bash echo=FALSE eval=FALSE}
+cd $RNA_HOME/expression/htseq_counts/
+
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K.bam $RNA_REF_GTF > BP_HL_K_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800287.bam $RNA_REF_GTF > BP_HL_K800287_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800290.bam $RNA_REF_GTF > BP_HL_K800290_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800294.bam $RNA_REF_GTF > BP_HL_K800294_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800301.bam $RNA_REF_GTF > BP_HL_K800301_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800303.bam $RNA_REF_GTF > BP_HL_K800303_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800304.bam $RNA_REF_GTF > BP_HL_K800304_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800305.bam $RNA_REF_GTF > BP_HL_K800305_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800307.bam $RNA_REF_GTF > BP_HL_K800307_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800308.bam $RNA_REF_GTF > BP_HL_K800308_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_K800321.bam $RNA_REF_GTF > BP_HL_K800321_gene.tsv
+
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P_1.bam $RNA_REF_GTF > BP_HL_P_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800287_1.bam $RNA_REF_GTF > BP_HL_P800287_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800290_1.bam $RNA_REF_GTF > BP_HL_P800290_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800294_1.bam $RNA_REF_GTF > BP_HL_P800294_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800301_1.bam $RNA_REF_GTF > BP_HL_P800301_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800303_1.bam $RNA_REF_GTF > BP_HL_P800303_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800304_1.bam $RNA_REF_GTF > BP_HL_P800304_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800305_1.bam $RNA_REF_GTF > BP_HL_P800305_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800307_1.bam $RNA_REF_GTF > BP_HL_P800307_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800308_1.bam $RNA_REF_GTF > BP_HL_P800308_1_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800321_1.bam $RNA_REF_GTF > BP_HL_P800321_1_gene.tsv
+
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P_2.bam $RNA_REF_GTF > BP_HL_P_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800287_2.bam $RNA_REF_GTF > BP_HL_P800287_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800290_2.bam $RNA_REF_GTF > BP_HL_P800290_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800294_2.bam $RNA_REF_GTF > BP_HL_P800294_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800301_2.bam $RNA_REF_GTF > BP_HL_P800301_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800303_2.bam $RNA_REF_GTF > BP_HL_P800303_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800304_2.bam $RNA_REF_GTF > BP_HL_P800304_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800305_2.bam $RNA_REF_GTF > BP_HL_P800305_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800307_2.bam $RNA_REF_GTF > BP_HL_P800307_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800308_2.bam $RNA_REF_GTF > BP_HL_P800308_2_gene.tsv
+htseq-count --format bam --order pos --mode intersection-strict --stranded reverse --minaqual 1 --type exon --idattr gene_id $RNA_ALIGN_DIR/BP_HL_P800321_2.bam $RNA_REF_GTF > BP_HL_P800321_2_gene.tsv
+
+
+```
+
+
+
+
+Merge results files into a single matrix for use in edgeR. The following joins the results for each replicate together, adds a header, reformats the result as a tab delimited file, and shows you the first 10 lines of the resulting file :
+
+
+
+```{bash echo=FALSE eval=FALSE}
+cd $RNA_HOME/expression/htseq_counts/
+join BP_HL_K800287_gene.tsv BP_HL_K800290_gene.tsv | join - BP_HL_K800294_gene.tsv | join - BP_HL_K800301_gene.tsv | join - BP_HL_K800303_gene.tsv | join - BP_HL_K800304_gene.tsv | join - BP_HL_K800305_gene.tsv | join - BP_HL_K800307_gene.tsv | join - BP_HL_K800308_gene.tsv | join - BP_HL_K800321_gene.tsv | join - BP_HL_P800287_1_gene.tsv | join - BP_HL_P800290_1_gene.tsv | join - BP_HL_P800294_1_gene.tsv | join - BP_HL_P800301_1_gene.tsv | join - BP_HL_P800303_1_gene.tsv | join - BP_HL_P800304_1_gene.tsv | join - BP_HL_P800305_1_gene.tsv | join - BP_HL_P800307_1_gene.tsv | join - BP_HL_P800308_1_gene.tsv | join - BP_HL_P800321_1_gene.tsv | join - BP_HL_P800287_2_gene.tsv | join - BP_HL_P800290_2_gene.tsv | join - BP_HL_P800294_2_gene.tsv | join - BP_HL_P800301_2_gene.tsv | join - BP_HL_P800303_2_gene.tsv | join - BP_HL_P800304_2_gene.tsv | join - BP_HL_P800305_2_gene.tsv | join - BP_HL_P800307_2_gene.tsv | join - BP_HL_P800308_2_gene.tsv | join - BP_HL_P800321_2_gene.tsv > gene_read_counts_table_all.tsv
+
+echo "GeneID BP_HL_K800287 BP_HL_K800290 BP_HL_K800294 BP_HL_K800301 BP_HL_K800303 BP_HL_K800304 BP_HL_K800305 BP_HL_K800307 BP_HL_K800308 BP_HL_K800321 BP_HL_P800287_1 BP_HL_P800290_1 BP_HL_P800294_1 BP_HL_P800301_1 BP_HL_P800303_1 BP_HL_P800304_1 BP_HL_P800305_1 BP_HL_P800307_1 BP_HL_P800308_1 BP_HL_P800321_1 BP_HL_P800287_2 BP_HL_P800290_2 BP_HL_P800294_2 BP_HL_P800301_2 BP_HL_P800303_2 BP_HL_P800304_2 BP_HL_P800305_2 BP_HL_P800307_2 BP_HL_P800308_2 BP_HL_P800321_2" > header.txt
+cat header.txt gene_read_counts_table_all.tsv | grep -v "__" | awk -v OFS="\t" '$1=$1' > gene_read_counts_table_all_final.tsv
+rm -f gene_read_counts_table_all.tsv header.txt
+head gene_read_counts_table_all_final.tsv | column -t
+
+
+```
+# Summary: 
+Matching the genomic locations of aligned reads with reference annotation allows you to investigate important quality aspects, such as saturation of sequencing depth, coverage uniformity along transcripts, and read distribution between different genomic feature types. Several tools are available for annotation-based quality control and they all have their particular advantages. 
+When reads have been mapped to a reference, we can also quantitate gene expression by counting reads per genes, transcripts, and exons. Quantitation and differential expression analysis are inherently inter-linked, and the best practices are still being debated. Reads can be counted per genes with tools like HTSeq, but gene-level counts are not optimal for differential expression analysis of those genes which undergo isoform switching (because longer transcripts give more counts). The major challenge in quantitating expression at transcript level is how to assign ambiguously mapping reads to different isoforms.
+
+
+### Ballgown DE Analysis
+
+REPLICATES: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4878611/
+
+Differential expression (DE) analysis refers to the identification of genes (or other types of genomic features, such as, transcripts or exons) that are expressed in significantly different quantities in distinct groups of samples, be it biological conditions (drug-treated vs. controls), diseased vs. healthy individuals, different tissues, different stages of development, or something else. Although genes (if we focus on those for a while) are of course not expressed independent of each other, differential expression analysis is typically done on one gene at a time (although information is sometimes borrowed across genes, as we will see below), that is, in a univariate way. The reason for this is that while there may be tens of thousands of genes for which expression measurements have been done, the number of biological samples is typically much smaller. Another way of stating this is that the number of examples is much smaller than the number of features, which makes it harder to fit a statistical model that considers all genes as a whole. Multivariate dimension reduction methods such as principal component analysis (PCA) or nonnegative matrix factorization (NMF) can be used to construct low-dimensional representations of the expression profiles that retain some of the properties of the complete data set and are thus often useful for visualization and sometimes as a preprocessing step for analysis.
+
+Use Ballgown to compare conditions. As example, we are going to compare healty stage and prelisional.
+
+
+```{bash echo=FALSE eval=FALSE}
+
+mkdir -p $RNA_HOME/de/ballgown/ref_only/
+cd $RNA_HOME/de/ballgown/ref_only/
+printf "\"ids\",\"type\",\"time\",\"path\"\n\"BP_HL_K800287\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800287\"\n\"BP_HL_K800290\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800290\"\n\"BP_HL_K800294\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800294\"\n\"BP_HL_K800301\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800301\"\n\"BP_HL_K800303\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800303\"\n\"BP_HL_K800304\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800304\"\n\"BP_HL_K800305\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800305\"\n\"BP_HL_K800307\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800307\"\n\"BP_HL_K800308\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800308\"\n\"BP_HL_K800321\",\"BP_HL_K\",\"0\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_K800321\"\n\"BP_HL_P800287_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800287_1\"\n\"BP_HL_P800290_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800290_1\"\n\"BP_HL_P800294_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800294_1\"\n\"BP_HL_P800301_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800301_1\"\n\"BP_HL_P800303_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800303_1\"\n\"BP_HL_P800304_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800304_1\"\n\"BP_HL_P800305_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800305_1\"\n\"BP_HL_P800307_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800307_1\"\n\"BP_HL_P800308_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800308_1\"\n\"BP_HL_P800321_1\",\"BP_HL_P_1\",\"1\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800321_1\"\n\"BP_HL_P800287_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800287_2\"\n\"BP_HL_P800290_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800290_2\"\n\"BP_HL_P800294_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800294_2\"\n\"BP_HL_P800301_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800301_2\"\n\"BP_HL_P800303_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800303_2\"\n\"BP_HL_P800304_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800304_2\"\n\"BP_HL_P800305_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800305_2\"\n\"BP_HL_P800307_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800307_2\"\n\"BP_HL_P800308_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800308_2\"\n\"BP_HL_P800321_2\",\"BP_HL_P_2\",\"2\",\"$RNA_HOME/expression/stringtie/ref_only/BP_HL_P800321_2\"\n" > BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2.csv
+cat BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2.csv
+
+
+```
+
+
+The standard RPKM measure (or its paired-end equivalent, FPKM)
+was introduced in a 2008 paper [12] and designed to enable comparisons
+of the same gene’s expression levels across samples or of different genes’
+expression levels in the same sample. RPKM (FPKM) stands for Reads
+(Fragments) Per Kilobase per Million (mapped) reads and it corrects
+the raw counts both with respect to the gene or transcript length and
+sequencing depth. There are some slight variations in how the measure
+has been applied; for instance, different studies have used different values
+in the denumerator: the total number of reads from the sequencer, the
+number of reads mapped to the genome or transcriptome, or the number
+of reads mapped to known exons. Similarly, for the gene or transcript
+length, some investigators have chosen to use the entire length of the
+transcript, while others have used the “effective length” [13] or the “map-
+pable length” [14].
+While R/FPKM is still the most commonly used measure for expres-
+sion from RNA-seq, other measures have been proposed to correct for
+possible biases in some scenarios. TPM (transcripts per million) [15] is
+very similar to R/FPKM but also accounts for the distribution of tran-
+script lengths in the RNA population. Without this correction (as in R/
+FPKM), the authors argue that bias will be introduced when compar-
+ing two RNA pools with different transcript length distributions. TMM
+(trimmed means of M values) also attempts, in another way, to correct for
+different compositions of RNA pools.
+
+
+```{r}
+
+
+# load the required libraries
+library(ballgown)
+library(genefilter)
+library(dplyr)
+library(devtools)
+
+# Load phenotype data from a file we saved in the current working directory
+pheno_data = read.csv("BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2.csv")
+
+# Load ballgown data structure and save it to a variable "bg"
+bg = ballgown(samples=as.vector(pheno_data$path), pData=pheno_data)
+
+# Display a description of this object
+bg
+
+# Load all attributes including gene name
+bg_table = texpr(bg, 'all')
+bg_gene_names = unique(bg_table[, 9:10])
+
+# Save the ballgown object to a file for later use
+save(bg, file='bg.rda')
+
+# Perform differential expression (DE) analysis with no filtering
+results_transcripts = stattest(bg, feature="transcript", covariate="time", getFC=TRUE, meas="FPKM", timecourse = TRUE)
+results_genes = stattest(bg, feature="gene", covariate="time", getFC=TRUE, meas="FPKM", timecourse = TRUE)
+results_genes = merge(results_genes, bg_gene_names, by.x=c("id"), by.y=c("gene_id"))
+
+# Save a tab delimited file for both the transcript and gene results
+write.table(results_transcripts, "BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2_transcript_results.tsv", sep="\t", quote=FALSE, row.names = FALSE)
+write.table(results_genes, "BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2_gene_results.tsv", sep="\t", quote=FALSE, row.names = FALSE)
+
+# Filter low-abundance genes. Here we remove all transcripts with a variance across the samples of less than one
+bg_filt = subset (bg,"rowVars(texpr(bg)) > 1", genomesubset=TRUE)
+
+# Load all attributes including gene name
+bg_filt_table = texpr(bg_filt , 'all')
+bg_filt_gene_names = unique(bg_filt_table[, 9:10])
+
+# Perform DE analysis now using the filtered data
+results_transcripts = stattest(bg_filt, feature="transcript", covariate="time", getFC=TRUE, meas="FPKM", timecourse = TRUE)
+results_genes = stattest(bg_filt, feature="gene", covariate="time", getFC=TRUE, meas="FPKM", timecourse = TRUE)
+results_genes = merge(results_genes, bg_filt_gene_names, by.x=c("id"), by.y=c("gene_id"))
+
+# Output the filtered list of genes and transcripts and save to tab delimited files
+write.table(results_transcripts, "BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2_transcript_results_filtered.tsv", sep="\t", quote=FALSE, row.names = FALSE)
+write.table(results_genes, "BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2_gene_results_filtered.tsv", sep="\t", quote=FALSE, row.names = FALSE)
+
+# Identify the significant genes with p-value < 0.05
+sig_transcripts = subset(results_transcripts, results_transcripts$pval<0.05)
+sig_genes = subset(results_genes, results_genes$pval<0.05)
+
+# Output the signifant gene results to a pair of tab delimited files
+write.table(sig_transcripts, "BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2_transcript_results_sig.tsv", sep="\t", quote=FALSE, row.names = FALSE)
+write.table(sig_genes, "BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2_gene_results_sig.tsv", sep="\t", quote=FALSE, row.names = FALSE)
+
+```
+
+Save all genes with P<0.05 to a new file.
+
+```{bash}
+
+head BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2_gene_results_sig.tsv
+
+grep -v feature BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2_gene_results_sig.tsv | wc -l
+
+grep -v feature BP_HL_K_vs_BP_HL_P_1_vs_BP_HL_P_2_gene_results_sig.tsv | cut -f 5 | sed 's/\"//g' > DE3_genes.txt
+
+head DE3_genes.txt
+
+
+```
+
+
+
+
+### edgeR DE Analysis 
+
+Make use of the raw counts you generated above using htseq-count
+edgeR is a bioconductor package designed specifically for differential expression of count-based RNA-seq data
+This is an alternative to using stringtie/ballgown to find differentially expressed genes
+
+```{bash}
+
+cd $RNA_HOME/
+mkdir -p de/htseq_counts
+cd de/htseq_counts
+
+
+perl -ne 'if ($_ =~ /gene_id\s\"(ENSG\S+)\"\;/) { $id = $1; $name = undef; if ($_ =~ /gene_name\s\"(\S+)"\;/) { $name = $1; }; }; if ($id && $name) {print "$id\t$name\n";}' $RNA_REF_GTF | sort | uniq > ENSG_ID2Name.txt
+head ENSG_ID2Name.txt
+
+cut -f 1 ENSG_ID2Name.txt | sort | uniq | wc -l
+
+#count unique gene names
+cut -f 2 ENSG_ID2Name.txt | sort | uniq | wc -l
+
+#show the most repeated gene names
+cut -f 2 ENSG_ID2Name.txt | sort | uniq -c | sort -r | head
+
+
+
+
+```
+
+
+
+```{r}
+
+working_dir = "/media/evgenia/BP_RNAseq/workspace/rnaseq/de/htseq_counts"
+setwd(working_dir)
+
+#Read in gene mapping
+mapping=read.table("/media/evgenia/BP_RNAseq/workspace/rnaseq/de/htseq_counts/ENSG_ID2Name.txt", header=FALSE, stringsAsFactors=FALSE, row.names=1)
+
+# Read in count matrix
+rawdata=read.table("/media/evgenia/BP_RNAseq/workspace/rnaseq/expression/htseq_counts/gene_read_counts_table_all_final.tsv", header=TRUE, stringsAsFactors=FALSE, row.names=1)
+
+# Check dimensions
+dim(rawdata)
+
+# Require at least 1/30 of samples to have expressed count >= 10
+sample_cutoff <- (1/30)
+count_cutoff <- 10
+
+#Define a function to calculate the fraction of values expressed above the count cutoff
+getFE <- function(data,count_cutoff){
+ FE <- (sum(data >= count_cutoff)/length(data))
+ return(FE)
+}
+
+#Apply the function to all genes, and filter out genes not meeting the sample cutoff
+fraction_expressed <- apply(rawdata, 1, getFE, count_cutoff)
+keep <- which(fraction_expressed >= sample_cutoff)
+rawdata <- rawdata[keep,]
+
+# Check dimensions again to see effect of filtering
+dim(rawdata)
+
+#################
+# Running edgeR #
+#################
+
+# load edgeR
+library(edgeR)
+
+# make class labels
+class <- c( rep("BP_HL_K",10),rep("BP_HL_P_1",10), rep("BP_HL_P_2",10) )
+
+# Get common gene names
+Gene=rownames(rawdata)
+Symbol=mapping[Gene,1]
+gene_annotations=cbind(Gene,Symbol)
+
+# Make DGEList object
+y <- DGEList(counts=rawdata, genes=gene_annotations, group=class)
+nrow(y)
+
+# TMM Normalization
+y <- calcNormFactors(y)
+
+# Estimate dispersion
+y <- estimateCommonDisp(y, verbose=TRUE)
+y <- estimateTagwiseDisp(y)
+
+# Differential expression test
+et <- exactTest(y)
+
+# Extract raw counts to add back onto DE results
+counts <- getCounts(y)
+
+# Print top genes
+topTags(et)
+
+# Print number of up/down significant genes at FDR = 0.05  significance level
+summary(de <- decideTestsDGE(et, adjust.method="BH", p=.05))
+
+#Get output with BH-adjusted FDR values - all genes, any p-value, unsorted
+out <- topTags(et, n = "Inf", adjust.method="BH", sort.by="none", p.value=1)$table
+
+#Add raw counts back onto results for convenience (make sure sort and total number of elements allows proper join)
+out2 <- cbind(out, counts)
+
+#Limit to significantly DE genes
+out3 <- out2[as.logical(de),]
+
+# Order by p-value
+o <- order(et$table$PValue[as.logical(de)],decreasing=FALSE)
+out4 <- out3[o,]
+
+# Save table
+write.table(out4, file="DE_genes.txt", quote=FALSE, row.names=FALSE, sep="\t")
+
+
+
+```
+
+
+```{bash}
+cat $RNA_HOME/de/ballgown/ref_only/DE3_genes.txt
+cat $RNA_HOME/de/htseq_counts/DE_genes.txt
+
+cd $RNA_HOME/de/
+
+cut -f 1 $RNA_HOME/de/ballgown/ref_only/DE3_genes.txt | sort  > ballgown_DE_gene_symbols.txt
+cut -f 2 $RNA_HOME/de/htseq_counts/DE_genes.txt | sort | uniq | grep -v Gene_Name > htseq_counts_edgeR_DE_gene_symbols.txt
+
+
+```
+
+
+### Alignment Free Expression Estimation (Kallisto)
+
+Note: we are using trimmed data to avoid ambiguity
+
+```{bash}
+mkdir kallisto
+cd kallisto
+kallisto index --index=GRCh38_transcripts_kallisto_index ../GRCh38_transcripts.clean.fa
+
+cd $RNA_HOME/expression/
+mkdir kallisto
+cd kallisto
+
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800287 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800287_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800287_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800290 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800290_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800290_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800294 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800294_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800294_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800301 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800301_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800301_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800303 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800303_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800303_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800304 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800304_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800304_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800305 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800305_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800305_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800307 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800307_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800307_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800308 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800308_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800308_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K800321 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800321_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800321_2.fastq.gz
+
+
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800287_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800287_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800287_1_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800290_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800290_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800290_1_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800294_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800294_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800294_1_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800301_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800301_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800301_1_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800303_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800303_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800303_1_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800304_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800304_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800304_1_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800305_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800305_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800305_1_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800307_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800307_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800307_1_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800308_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800308_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800308_1_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800321_1 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800321_1_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800321_1_2.fastq.gz
+
+
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800287_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800287_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800287_2_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800290_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800290_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800290_2_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800294_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800294_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800294_2_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800301_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800301_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800301_2_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800303_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800303_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800303_2_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800304_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800304_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800304_2_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800305_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800305_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800305_2_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800307_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800307_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800307_2_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800308_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800308_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800308_2_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_P800321_2 --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_P800321_2_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_P800321_2_2.fastq.gz
+
+
+
+
+cd $RNA_HOME/expression/kallisto
+paste */abundance.tsv | cut -f 1,2,5,10,15,20,25,30 > transcript_tpms_all_samples.tsv
+ls -1 */abundance.tsv | perl -ne 'chomp $_; if ($_ =~ /(\S+)\/abundance\.tsv/){print "\t$1"}' | perl -ne 'print "target_id\tlength$_\n"' > header.tsv
+cat header.tsv transcript_tpms_all_samples.tsv | grep -v "tpm" > transcript_tpms_all_samples.tsv2
+mv transcript_tpms_all_samples.tsv2 transcript_tpms_all_samples.tsv
+rm -f header.tsv
+
+head transcript_tpms_all_samples.tsv
+tail transcript_tpms_all_samples.tsv
+
+# we want to check strand options, which work better
+
+cd $RNA_HOME/expression/kallisto
+mkdir strand_option_test
+cd strand_option_test
+
+kallisto quant --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K_No-Strand --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800287_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800287_2.fastq.gz
+kallisto quant --rf-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K_RF-Stranded --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800287_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800287_2.fastq.gz
+kallisto quant --fr-stranded --index=$RNA_HOME/refs/kallisto/GRCh38_transcripts_kallisto_index --output-dir=BP_HL_K_FR-Stranded --threads=4 --plaintext $RNA_DATA_DIR/trimmed/BP_HL_K800287_1.fastq.gz $RNA_DATA_DIR/trimmed/BP_HL_K800287_2.fastq.gz
+
+# Find a gene where the transcript expression estimates vary depending on the strand setting. Combine results from different strand options
+
+paste */abundance.tsv | cut -f 1,2,5,10,15 > transcript_tpms_strand-modes.tsv
+ls -1 */abundance.tsv | perl -ne 'chomp $_; if ($_ =~ /(\S+)\/abundance\.tsv/){print "\t$1"}' | perl -ne 'print "target_id\tlength$_\n"' > header.tsv
+cat header.tsv transcript_tpms_strand-modes.tsv | grep -v "tpm" > transcript_tpms_strand-modes.tsv2
+mv transcript_tpms_strand-modes.tsv2 transcript_tpms_strand-modes.tsv
+rm -f header.tsv
+
+
+
+
+
+
+```
+Use R to produce comparisons of the three modes:
+
+```{r}
+
+library(ggplot2)
+library(cowplot)
+
+# load input data
+data <- read.delim('~/workspace/rnaseq/expression/kallisto/strand_option_test/transcript_tpms_strand-modes.tsv')
+
+# log2 transform the data
+FR_data=log2((data$BP_HL_K_FR.Stranded)+1)
+RF_data=log2((data$BP_HL_K_RF.Stranded)+1)
+unstranded_data=log2((data$BP_HL_K_No.Strand)+1)
+
+# create scatterplots for each pairwise comparison of kallisto abundance estimates generated using each of the different kallisto strand modes
+FR_vs_unstranded <- ggplot(data, aes(x=FR_data, y=unstranded_data)) + geom_point(alpha = 0.1) + ggtitle('FR vs No Strand') + xlab('FR log2(expression+1)') + ylab('No Strand log2(expression+1)')
+RF_vs_unstranded <- ggplot(data, aes(x=RF_data, y=unstranded_data)) + geom_point(alpha = 0.1) + ggtitle('RF vs No Strand') + xlab('RF log2(expression+1)') + ylab('No Strand log2(expression+1)')
+FR_vs_RF <- ggplot(data, aes(x=FR_data, y=RF_data)) + geom_point(alpha = 0.1) + ggtitle('FR vs RF') + xlab('FR log2(expression+1)') + ylab('RF log2(expression+1)')
+
+# plot the set of comparisons as a multipanel figure
+pdf(file="Kallisto_Strand_Option_Comparisons.pdf")
+plot_grid(FR_vs_unstranded, RF_vs_unstranded, FR_vs_RF, ncol = 1, nrow = 3)
+dev.off()
+
+
+```
+
+Let's compare results from htseq-count and kalisto
+
+```{bash}
+
+cd $RNA_HOME/expression/kallisto
+wget https://raw.githubusercontent.com/griffithlab/rnabio.org/master/assets/scripts/kallisto_gene_matrix.pl
+chmod +x kallisto_gene_matrix.pl
+./kallisto_gene_matrix.pl --gtf_file=$RNA_HOME/refs/GRCh38.gtf  --kallisto_transcript_matrix_in=transcript_tpms_all_samples.tsv --kallisto_transcript_matrix_out=gene_tpms_all_samples.tsv
+column -t gene_tpms_all_samples.tsv | less -S
+
+```
+
+
+
+```{r}
+
+#Load libraries
+library(ggplot2)
+
+#Set the base working dir from which to access the input files
+working_dir = '~/workspace/rnaseq/expression'
+setwd(working_dir)
+
+#Load in expression matrix files from each expression method
+htseq_gene_counts = read.table('htseq_counts/gene_read_counts_table_all_final.tsv', sep="\t", header=TRUE, as.is=1, row.names=1)
+stringtie_gene = read.table('stringtie/ref_only/gene_tpm_all_samples.tsv', sep="\t", header=TRUE, as.is=1, row.names=1)
+stringtie_tran = read.table('stringtie/ref_only/transcript_tpm_all_samples.tsv', sep="\t", header=TRUE, as.is=1, row.names=1)
+stringtie_gene_fpkm = read.table('stringtie/ref_only/gene_fpkm_all_samples.tsv', sep="\t", header=TRUE, as.is=1, row.names=1)
+stringtie_tran_fpkm = read.table('stringtie/ref_only/transcript_fpkm_all_samples.tsv', sep="\t", header=TRUE, as.is=1, row.names=1)
+kallisto_gene = read.table('kallisto/gene_tpms_all_samples.tsv', sep="\t", header=TRUE, as.is=1, row.names=1)
+kallisto_tran = read.table('kallisto/transcript_tpms_all_samples.tsv', sep="\t", header=TRUE, as.is=1, row.names=1)
+
+#Summarize the data.frames created
+dim(htseq_gene_counts)
+dim(stringtie_gene)
+dim(stringtie_gene_fpkm)
+dim(kallisto_gene)
+
+dim(stringtie_tran)
+dim(stringtie_tran_fpkm)
+dim(kallisto_tran)
+
+#Reorganize the data.frames for total consistency
+kallisto_names = c("length", "BP_HL_K800287", "BP_HL_K800290", "BP_HL_K800294", "BP_HL_K800301", "BP_HL_K800303","BP_HL_K800304", "BP_HL_K800305", "BP_HL_K800307", "BP_HL_K800308", "BP_HL_K800321", "BP_HL_P800287_1", "BP_HL_P800290_1", "BP_HL_P800294_1", "BP_HL_P800301_1", "BP_HL_P800303_1", "BP_HL_P800304_1", "BP_HL_P800305_1", "BP_HL_P800307_1", "BP_HL_P800308_1", "BP_HL_P800321_1", "BP_HL_P800287_2", "BP_HL_P800290_2", "BP_HL_P800294_2", "BP_HL_P800301_2", "BP_HL_P800303_2", "BP_HL_P800304_2", "BP_HL_P800305_2", "BP_HL_P800307_2", "BP_HL_P800308_2", "BP_HL_P800321_2")
+names(kallisto_gene) = kallisto_names
+names(kallisto_tran) = kallisto_names
+
+sample_names = c("BP_HL_K800287", "BP_HL_K800290", "BP_HL_K800294", "BP_HL_K800301", "BP_HL_K800303","BP_HL_K800304", "BP_HL_K800305", "BP_HL_K800307", "BP_HL_K800308", "BP_HL_K800321", "BP_HL_P800287_1", "BP_HL_P800290_1", "BP_HL_P800294_1", "BP_HL_P800301_1", "BP_HL_P800303_1", "BP_HL_P800304_1", "BP_HL_P800305_1", "BP_HL_P800307_1", "BP_HL_P800308_1", "BP_HL_P800321_1", "BP_HL_P800287_2", "BP_HL_P800290_2", "BP_HL_P800294_2", "BP_HL_P800301_2", "BP_HL_P800303_2", "BP_HL_P800304_2", "BP_HL_P800305_2", "BP_HL_P800307_2", "BP_HL_P800308_2", "BP_HL_P800321_2")
+gene_names = row.names(kallisto_gene)
+tran_names = row.names(kallisto_tran)
+
+htseq_gene_counts = htseq_gene_counts[gene_names, sample_names]
+stringtie_gene = stringtie_gene[gene_names, sample_names]
+stringtie_gene_fpkm = stringtie_gene_fpkm[gene_names, sample_names]
+kallisto_gene = kallisto_gene[gene_names, sample_names]
+stringtie_tran = stringtie_tran[tran_names, sample_names]
+stringtie_tran_fpkm = stringtie_tran_fpkm[tran_names, sample_names]
+kallisto_tran = kallisto_tran[tran_names, sample_names]
+
+#Take a look at the top of each data.frame
+head(htseq_gene_counts)
+head(stringtie_gene)
+head(stringtie_gene_fpkm)
+head(kallisto_gene)
+head(stringtie_tran)
+head(stringtie_tran_fpkm)
+head(kallisto_tran)
+
+#1. Plot kallisto gene TPMs vs stringtie gene TPMs - Pick BP_HL_K800287 data arbitrarily
+stabvar = 0.1
+BP_HL_K800287_gene_data = data.frame(kallisto_gene[,"BP_HL_K800287"], stringtie_gene[,"BP_HL_K800287"], htseq_gene_counts[,"BP_HL_K800287"])
+names(BP_HL_K800287_gene_data) = c("kallisto", "stringtie", "htseq")
+p1 = ggplot(BP_HL_K800287_gene_data, aes(log2(kallisto+stabvar), log2(stringtie+stabvar)))
+p1 = p1 + geom_point()
+p1 = p1 + geom_point(aes(colour = log2(htseq+stabvar))) + scale_colour_gradient(low = "yellow", high = "red")
+p1 = p1 + xlab("Kallisto TPM") + ylab("StringTie TPM") + labs(colour = "HtSeq Counts")
+p1 = p1 + labs(title = "BP_HL_K800287 GENE expression values [log2(value + 0.1) scaled]")
+
+#2. Plot kallisto transcript TPMs vs stringtie transcript TPMs
+# But now use color to indicate whether each data point corresponds to real transcripts vs. spike-in controls
+BP_HL_K800287_tran_data = data.frame(kallisto_tran[,"BP_HL_K800287"], stringtie_tran[,"BP_HL_K800287"])
+names(BP_HL_K800287_tran_data) = c("kallisto", "stringtie")
+
+p2 = ggplot(HBR1_tran_data, aes(log2(kallisto+stabvar), log2(stringtie+stabvar)))
+p2 = p2 + geom_point()
+p2 = p2 + xlab("Kallisto TPM") + ylab("StringTie TPM") 
+p2 = p2 + labs(title = "BP_HL_K800287 TRANSCRIPT expression values [log2(value + 0.1) scaled]")
+
+#3. Plot stringtie transcript TPMs vs. stringtie transcript FPKMs - Pick HBR_Rep1 data arbitrarily
+# Indicate with the points whether the data are real transcripts vs. spike-in controls
+BP_HL_K800287_tran_data2 = data.frame(stringtie_tran[,"BP_HL_K800287"], stringtie_tran_fpkm[,"BP_HL_K800287"])
+names(BP_HL_K800287_tran_data2) = c("stringtie_TPM", "stringtie_FPKM")
+p3 = ggplot(BP_HL_K800287_tran_data2, aes(log2(stringtie_TPM+stabvar), log2(stringtie_FPKM+stabvar)))
+p3 = p3 + geom_point()
+p3 = p3 + geom_abline(intercept = 0, slope = 1)
+p3 = p3 + xlab("StringTie TPM") + ylab("StringTie FPKM")
+p3 = p3 + labs(title = "BP_HL_K800287 transcript expression values [log2(value + 0.1) scaled]")
+
+#Print out the plots created above and store in a single PDF file
+pdf(file="Kallisto-StringTie-HTSeqCount_Comparisons.pdf")
+print(p1)
+print(p2)
+print(p3)
+dev.off()
+
+```
+
+
+
+
+
+
+
+
+
+
